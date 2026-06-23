@@ -65,14 +65,6 @@ public class PlaceholderHandler {
         public static final Map<String, IPlaceholderRenderer> renderers = new HashMap<>();
     }
 
-    public static void addPlaceholder(Placeholder placeholder) {
-        GTRegistries.PLACEHOLDERS.register(placeholder.getId(), placeholder);
-    }
-
-    public static void addOrOverridePlaceholder(Placeholder placeholder) {
-        GTRegistries.PLACEHOLDERS.registerOrOverride(placeholder.getId(), placeholder);
-    }
-
     public static @Nullable Placeholder getPlaceholder(String str) {
         return GTRegistries.PLACEHOLDERS.get(GTCEu.id(str));
     }
@@ -329,7 +321,7 @@ public class PlaceholderHandler {
                                 .paddingBottom(5)
                                 .excludeAreaInRecipeViewer()
                                 .fullHeight()
-                                .children(GTRegistries.PLACEHOLDERS.keys()
+                                .children(GTRegistries.PLACEHOLDERS.keySet()
                                         .stream()
                                         .sorted()
                                         .map(s -> (IWidget) Flow.row()
