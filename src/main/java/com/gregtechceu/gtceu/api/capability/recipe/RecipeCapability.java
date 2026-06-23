@@ -39,7 +39,7 @@ public abstract class RecipeCapability<T> {
                     .comapFlatMap(
                             id -> GTRegistries.RECIPE_CAPABILITIES.getHolder(id)
                                     .map(DataResult::success)
-                                    .orElseGet(() -> DataResult.error(() -> "Unknown registry key in " + GTRegistries.RECIPE_CAPABILITY_REGISTRY + ": " + id)),
+                                    .orElseGet(() -> DataResult.error(() -> "Unknown registry key in " + GTRegistries.Keys.RECIPE_CAPABILITY + ": " + id)),
                             (Holder.Reference<RecipeCapability<?>> holder) -> holder.key().location()
                     )
             .flatComapMap(Holder.Reference::value, cap -> safeReference(GTRegistries.RECIPE_CAPABILITIES.wrapAsHolder(cap)));
@@ -192,7 +192,7 @@ public abstract class RecipeCapability<T> {
     private static DataResult<Holder.Reference<RecipeCapability<?>>> safeReference(Holder<RecipeCapability<?>> value) {
         return value.getDelegate() instanceof Holder.Reference<RecipeCapability<?>> reference ?
                 DataResult.success(reference) : DataResult.error(
-                        () -> "Unregistered holder in " + GTRegistries.RECIPE_CAPABILITY_REGISTRY + ": " + value);
+                        () -> "Unregistered holder in " + GTRegistries.Keys.RECIPE_CAPABILITY + ": " + value);
     }
 
     /**
