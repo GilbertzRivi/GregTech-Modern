@@ -57,13 +57,12 @@ public interface CapabilityContentBuilder {
                                      recipeType, recipe, chanceTier, recipeTier) -> {
         if (!(widget instanceof RecipeViewerSlotWidget<?> recipeViewerSlotWidget)) return;
 
-        float chance = (float) recipeType.getChanceFunction()
-                .getBoostedChance(content, recipeTier, chanceTier) / content.maxChance();
+        float chance = (float) content.chance() / content.maxChance();
         var innerContent = ItemRecipeCapability.CAP.of(content.content());
 
         recipeViewerSlotWidget.value(ItemRecipeCapability.mapIngredientToEntryList(innerContent));
         recipeViewerSlotWidget
-                .overlay(new ContentOverlay(content, perTick, recipeTier, chanceTier, recipeType.getChanceFunction()));
+                .overlay(new ContentOverlay(content, perTick));
         recipeViewerSlotWidget.chance(chance);
 
         if (io == IO.IN && (content.chance() == 0 ||
@@ -78,8 +77,7 @@ public interface CapabilityContentBuilder {
         recipeViewerSlotWidget.tooltipBuilder((tooltip) -> {
 
             Content.addChanceTooltips(tooltip, content,
-                    recipe.getChanceLogicForCapability(ItemRecipeCapability.CAP, io, perTick),
-                    recipeTier, chanceTier, recipeType.getChanceFunction());
+                    recipe.getChanceLogicForCapability(ItemRecipeCapability.CAP, io, perTick));
 
             if (innerContent.ingredient().getCustomIngredient() instanceof IntProviderIngredient ingredient) {
                 IntProvider countProvider = ingredient.getCountProvider();
@@ -103,13 +101,12 @@ public interface CapabilityContentBuilder {
                                       recipeType, recipe, chanceTier, recipeTier) -> {
         if (!(widget instanceof RecipeViewerSlotWidget<?> recipeViewerSlotWidget)) return;
 
-        float chance = (float) recipeType.getChanceFunction()
-                .getBoostedChance(content, recipeTier, chanceTier) / content.maxChance();
+        float chance = (float) content.chance() / content.maxChance();
         SizedFluidIngredient ingredient = FluidRecipeCapability.CAP.of(content.content());
 
         recipeViewerSlotWidget.value(FluidRecipeCapability.mapIngredientToEntryList(ingredient));
         recipeViewerSlotWidget
-                .overlay(new ContentOverlay(content, perTick, recipeTier, chanceTier, recipeType.getChanceFunction()));
+                .overlay(new ContentOverlay(content, perTick));
         recipeViewerSlotWidget.chance(chance);
 
         recipeViewerSlotWidget.tooltipBuilder((tooltip) -> {
