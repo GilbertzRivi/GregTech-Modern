@@ -39,7 +39,8 @@ public class IntProviderIngredient implements ICustomIngredient, IRangedIngredie
     public static final MapCodec<IntProviderIngredient> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
             Ingredient.CODEC.fieldOf("inner").forGetter(IntProviderIngredient::getInner),
             IntProvider.CODEC.fieldOf("count_provider").forGetter(IntProviderIngredient::getCountProvider),
-            Codec.INT.optionalFieldOf("sampled_count", -1).forGetter(IRangedIngredient::getSampledCount)
+            Codec.INT.optionalFieldOf("sampled_count", -1).forGetter(IRangedIngredient::getSampledCount),
+            Codec.INT.optionalFieldOf("sampled_count", -1).forGetter(IRangedIngredient::getAmount)
     ).apply(instance, IntProviderIngredient::new));
     // spotless:on
     public static final ResourceLocation TYPE = GTCEu.id("int_provider");
@@ -51,7 +52,6 @@ public class IntProviderIngredient implements ICustomIngredient, IRangedIngredie
      * The last result of {@link IntProviderIngredient#rollSampledCount(RandomSource)}. -1 if not rolled.
      */
     @Getter
-    @Setter
     protected int sampledCount = -1;
     /**
      * The {@link Ingredient} to have a ranged amount.
@@ -59,17 +59,26 @@ public class IntProviderIngredient implements ICustomIngredient, IRangedIngredie
     @Getter
     protected final Ingredient inner;
     @Setter
-    protected ItemStack @Nullable [] itemStacks = null;
+    protected  @Nullable ItemStack[] itemStacks = null;
+    @Getter
+    private int amount;
+    private boolean changed = true;
 
     protected IntProviderIngredient(Ingredient inner, IntProvider countProvider) {
         this.inner = inner;
         this.countProvider = countProvider;
+        this.amount = getMaxRoll();
     }
 
-    protected IntProviderIngredient(Ingredient inner, IntProvider countProvider, int sampledCount) {
+    protected IntProviderIngredient(Ingredient inner, IntProvider countProvider, int sampledCount, int amount) {
         this.inner = inner;
         this.countProvider = countProvider;
         this.sampledCount = sampledCount;
+        this.amount = amount;
+    }
+
+    public IntProviderIngredient copy() {
+        return new IntProviderIngredient(this.inner, this.countProvider, this.sampledCount, this.amount);
     }
 
     /**
@@ -103,18 +112,27 @@ public class IntProviderIngredient implements ICustomIngredient, IRangedIngredie
      * @return a {@link ItemStack ItemStack[]} with count {@link IntProviderIngredient#sampledCount}
      */
     public ItemStack[] getItemStacks() {
-        if (itemStacks == null) {
-            int cachedCount = rollSampledCount();
-            if (cachedCount == 0) {
-                return EMPTY_STACK_ARRAY;
+        if (changed || itemStacks == null) {
+            changed = false;
+            if (!isRolled()) {
+                setAmount(rollSampledCount());
+                if (getAmount() == 0) {
+                    itemStacks = EMPTY_STACK_ARRAY;
+                    return EMPTY_STACK_ARRAY;
+                }
             }
             var innerStacks = inner.getItems();
             this.itemStacks = new ItemStack[innerStacks.length];
             for (int i = 0; i < itemStacks.length; i++) {
-                itemStacks[i] = innerStacks[i].copyWithCount(cachedCount);
+                itemStacks[i] = innerStacks[i].copyWithCount(getAmount());
             }
         }
         return itemStacks;
+    }
+
+    public void setAmount(int amount) {
+        this.amount = amount;
+        this.changed = true;
     }
 
     @Override
@@ -169,10 +187,19 @@ public class IntProviderIngredient implements ICustomIngredient, IRangedIngredie
      */
     @Override
     public int rollSampledCount(@NotNull RandomSource random) {
-        if (sampledCount == -1) {
+        if (!isRolled()) {
             sampledCount = countProvider.sample(random);
+            this.setAmount(sampledCount);
         }
         return sampledCount;
+    }
+
+    /**
+     * Also sets the Amount of this ingredient
+     */
+    public void setSampledCount(int count) {
+        this.sampledCount = count;
+        this.setAmount(count);
     }
 
     /**
@@ -180,6 +207,7 @@ public class IntProviderIngredient implements ICustomIngredient, IRangedIngredie
      */
     public void reset() {
         sampledCount = -1;
+        setAmount(getMaxRoll());
         itemStacks = null;
     }
 }

@@ -57,13 +57,10 @@ public class RecipeOutputProvider extends MachineTraitProvider<RecipeLogic, Comp
             return data;
         }
         data.putBoolean("Working", recipeLogic.isWorking());
-        GTRecipe recipe = recipeLogic.getLastRecipe();
+        GTRecipe recipe = recipeLogic.getLastDisplayedRecipe();
         if (recipe == null) {
             return data;
         }
-        int recipeTier = RecipeHelper.getPreOCRecipeEuTier(recipe);
-        int chanceTier = recipeTier + recipe.ocLevel;
-
         var itemContents = recipe.getOutputContents(ItemRecipeCapability.CAP);
         var fluidContents = recipe.getOutputContents(FluidRecipeCapability.CAP);
         int runs = recipe.getTotalRuns();
@@ -76,7 +73,6 @@ public class RecipeOutputProvider extends MachineTraitProvider<RecipeLogic, Comp
             CompoundTag itemTag;
             SizedIngredient content = ItemRecipeCapability.CAP.of(item.content());
             if (content.ingredient().getCustomIngredient() instanceof IntProviderIngredient provider) {
-
                 // don't roll for output but do copy for chance and batch
                 IntProviderIngredient chanced = provider;
                 if (item.chance() < item.maxChance()) {

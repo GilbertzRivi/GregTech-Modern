@@ -90,9 +90,6 @@ public class ItemRecipeCapability extends RecipeCapability<SizedIngredient> {
                 // spotless:off
                 if (ingredient.getContainedCustom() instanceof IntCircuitIngredient) {
                     list.addFirst(ingredient);
-                } else if (ingredient.getContainedCustom() instanceof IntProviderIngredient intProvider &&
-                        intProvider.getInner().getCustomIngredient() instanceof IntCircuitIngredient) {
-                    list.addFirst(ingredient);
                 } else {
                     list.add(ingredient);
                 }

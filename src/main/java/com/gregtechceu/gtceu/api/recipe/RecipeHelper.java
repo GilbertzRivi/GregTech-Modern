@@ -408,8 +408,7 @@ public class RecipeHelper {
     }
 
     public static boolean isFluidStackDivisibleForDistillery(SizedFluidIngredient fluidStack, int divisor) {
-        int amount = (fluidStack.ingredient() instanceof IRangedIngredient ranged ? ranged.getMaxRoll() :
-                fluidStack.amount());
+//        int amount = (fluidStack.ingredient() instanceof IRangedIngredient ranged ? ranged.getMaxRoll() : fluidStack.amount());
         return fluidStack.amount() % divisor == 0 && fluidStack.amount() / divisor >= 25;
     }
 

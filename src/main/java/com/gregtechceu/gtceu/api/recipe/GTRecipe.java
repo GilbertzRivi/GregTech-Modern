@@ -6,6 +6,7 @@ import com.gregtechceu.gtceu.api.recipe.chance.logic.ChanceLogic;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.gregtechceu.gtceu.api.recipe.content.ContentModifier;
 import com.gregtechceu.gtceu.api.recipe.ingredient.EnergyStack;
+import com.gregtechceu.gtceu.api.recipe.ingredient.IRangedIngredient;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -16,12 +17,14 @@ import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public class GTRecipe implements Recipe<RecipeInput> {
 
@@ -244,6 +247,36 @@ public class GTRecipe implements Recipe<RecipeInput> {
             a += stack.amperage();
         }
         return new EnergyStack(v, a);
+    }
+
+    public void doPrerolls(IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>> chanceCaches) {
+        var rangedContents = getFullContents();
+        for (Content item : rangedContents) {
+            if (item.content() instanceof IRangedIngredient ranged)
+                ranged.rollSampledCount();
+        }
+    }
+
+    public void doTickPrerolls(IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>> chanceCaches) {
+        var rangedContents = getFullTickContents();
+        for (Content item : rangedContents) {
+            if (item.content() instanceof IRangedIngredient ranged)
+                ranged.rollSampledCount();
+        }
+    }
+
+    public List<Content> getFullContents() {
+        return Stream
+                .concat(inputs.values().stream(), outputs.values().stream())
+                .flatMap(List::stream)
+                .toList();
+    }
+
+    public List<Content> getFullTickContents() {
+        return Stream
+                .concat(tickInputs.values().stream(), tickOutputs.values().stream())
+                .flatMap(List::stream)
+                .toList();
     }
 
     public int getTotalRuns() {

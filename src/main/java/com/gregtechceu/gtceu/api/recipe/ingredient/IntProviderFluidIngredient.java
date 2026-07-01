@@ -19,6 +19,7 @@ import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 /**
@@ -45,7 +46,6 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
      * The last result of {@link IntProviderFluidIngredient#rollSampledCount()}. -1 if not rolled.
      */
     @Getter
-    @Setter
     protected int sampledCount = -1;
     /**
      * The {@link FluidIngredient} to have a ranged amount.
@@ -54,79 +54,80 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
     private final FluidIngredient inner;
     @Setter
     protected FluidStack @Nullable [] fluidStacks = null;
+    @Getter
+    private int amount;
+    private boolean changed = true;
 
     protected IntProviderFluidIngredient(FluidIngredient inner, IntProvider provider) {
         this.inner = inner;
         this.countProvider = provider;
+        setAmount(provider.getMaxValue());
     }
 
     protected IntProviderFluidIngredient(FluidIngredient inner, IntProvider provider, int sampledCount) {
         this.inner = inner;
         this.countProvider = provider;
         this.sampledCount = sampledCount;
+        setAmount(isRolled() ? sampledCount : provider.getMaxValue());
     }
 
     public IntProviderFluidIngredient copy() {
-        IntProviderFluidIngredient copied = new IntProviderFluidIngredient(this.inner, this.countProvider);
-        copied.setSampledCount(this.sampledCount);
-        copied.setFluidStacks(this.fluidStacks);
-        return copied;
+        IntProviderFluidIngredient ipfi = new IntProviderFluidIngredient(this.inner, this.countProvider);
+        ipfi.setSampledCount(this.sampledCount);
+        ipfi.setFluidStacks(this.fluidStacks);
+        ipfi.setAmount(this.getAmount());
+        return ipfi;
     }
 
-    /**
-     * An {@link IntProviderFluidIngredient} does not have an amount.
-     * You probably want either {@link IntProviderFluidIngredient#getStacks()} or
-     * {@link IntProviderFluidIngredient#getMaxSizeStack()}.
-     */
-    @Deprecated
-    public int getAmount() {
-        if (ConfigHolder.INSTANCE.dev.debug) {
-            throw new IllegalCallerException("An IPFI should never have getAmount() called on it!");
-        }
-        return -1;
-    }
+//    @Override
+//    public boolean isEmpty() {
+//        return this.getAmount() == 0 || inner.isEmpty();
+//    }
+//
+//    @Override
+//    public boolean isEmpty() {
+//        return inner.isEmpty();
+//    }
 
     /**
-     * Gets a usable {@link FluidStack FluidStack[]} from this {@link IntProviderFluidIngredient}.
+     * Gets a usable {@link FluidStack Stream<FluidStack>} from this {@link IntProviderFluidIngredient}.
      * If this ingredient has not yet had its {@link IntProviderFluidIngredient#sampledCount} rolled, rolls it.
      *
-     * @return a {@link FluidStack FluidStack[]} with amount {@link IntProviderFluidIngredient#sampledCount}
+     * @return a {@link FluidStack FluidStack[]} with amount {@link IntProviderFluidIngredient#amount}
      */
     @Override
     public Stream<FluidStack> generateStacks() {
-        if (fluidStacks == null) {
-            int cachedAmount = rollSampledCount(GTValues.RNG);
-            if (cachedAmount == 0) {
-                return Stream.of(EMPTY_STACK_ARRAY);
-            }
-            var innerStacks = inner.getStacks();
-            this.fluidStacks = new FluidStack[innerStacks.length];
-            for (int i = 0; i < fluidStacks.length; i++) {
-                fluidStacks[i] = innerStacks[i].copyWithAmount(cachedAmount);
-            }
-        }
-        return Stream.of(fluidStacks);
+        return Arrays.stream(getFluidStacks());
     }
 
     /**
      * Gets a usable {@link FluidStack FluidStack[]} from this {@link IntProviderFluidIngredient}.
      * If this ingredient has not yet had its {@link IntProviderFluidIngredient#sampledCount} rolled, rolls it.
      *
-     * @return a {@link FluidStack FluidStack[]} with amount {@link IntProviderFluidIngredient#sampledCount}
+     * @return a {@link FluidStack FluidStack[]} with amount {@link IntProviderFluidIngredient#amount}
      */
     public FluidStack[] getFluidStacks() {
-        if (fluidStacks == null) {
-            int cachedAmount = rollSampledCount(GTValues.RNG);
-            if (cachedAmount == 0) {
-                return EMPTY_STACK_ARRAY;
+        if (changed || fluidStacks == null) {
+            changed = false;
+            if (!isRolled()) {
+                setAmount(rollSampledCount());
+                if (getAmount() == 0) {
+                    fluidStacks = EMPTY_STACK_ARRAY;
+                    return EMPTY_STACK_ARRAY;
+                }
             }
             var innerStacks = inner.getStacks();
             this.fluidStacks = new FluidStack[innerStacks.length];
             for (int i = 0; i < fluidStacks.length; i++) {
-                fluidStacks[i] = innerStacks[i].copyWithAmount(cachedAmount);
+                fluidStacks[i] = innerStacks[i].copyWithAmount(getAmount());
             }
         }
         return fluidStacks;
+    }
+
+    public void setAmount(int amount) {
+        this.amount = amount;
+        this.changed = true;
     }
 
     @Override
@@ -166,10 +167,11 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
      * @return the amount rolled
      */
     public int rollSampledCount(@NotNull RandomSource random) {
-        if (sampledCount == -1) {
+        if (!isRolled()) {
             sampledCount = countProvider.sample(random);
+            this.setAmount(sampledCount);
         }
-        return sampledCount;
+        return getAmount();
     }
 
     @Override
@@ -199,7 +201,16 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
     @Override
     public void reset() {
         sampledCount = -1;
+        this.setAmount(getMaxRoll());
         fluidStacks = null;
+    }
+
+    /**
+     * Also sets the Amount of this ingredient
+     */
+    public void setSampledCount(int count) {
+        this.sampledCount = count;
+        this.setAmount(count);
     }
 
     /**
