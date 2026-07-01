@@ -2,7 +2,6 @@ package com.gregtechceu.gtceu.api.recipe.ingredient;
 
 import com.gregtechceu.gtceu.GTCEu;
 import com.gregtechceu.gtceu.api.GTValues;
-import com.gregtechceu.gtceu.config.ConfigHolder;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -40,7 +39,6 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
      * The last result of {@link IntProviderFluidIngredient#getSampledCount()}. -1 if not rolled.
      */
     @Getter
-    @Setter
     protected int sampledCount = -1;
     /**
      * The {@link FluidIngredient} to have a ranged amount.
@@ -51,37 +49,31 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
     protected FluidStack[] fluidStacks = null;
 
     protected IntProviderFluidIngredient(FluidIngredient inner, IntProvider provider) {
-        super(inner.values, provider.getMaxValue(), null);
+        super(inner.values, provider.getMaxValue(), inner.nbt);
         this.inner = inner;
         this.countProvider = provider;
+        setAmount(provider.getMaxValue());
     }
 
     protected IntProviderFluidIngredient(FluidIngredient inner, IntProvider provider, int sampledCount) {
-        super(inner.values, provider.getMaxValue(), null);
+        super(inner.values, provider.getMaxValue(), inner.nbt);
         this.inner = inner;
         this.countProvider = provider;
         this.sampledCount = sampledCount;
+        setAmount(isRolled() ? sampledCount : provider.getMaxValue());
     }
 
     @Override
     public IntProviderFluidIngredient copy() {
         IntProviderFluidIngredient ipfi = new IntProviderFluidIngredient(this.inner, this.countProvider);
         ipfi.setSampledCount(this.sampledCount);
+        ipfi.setAmount(this.getAmount());
         return ipfi;
     }
 
-    /**
-     * An {@link IntProviderFluidIngredient} does not have an amount.
-     * You probably want either {@link IntProviderFluidIngredient#getStacks()} or
-     * {@link IntProviderFluidIngredient#getMaxSizeStack()}.
-     */
-    @Deprecated
     @Override
-    public int getAmount() {
-        if (ConfigHolder.INSTANCE.dev.debug) {
-            throw new IllegalCallerException("An IPFI should never have getAmount() called on it!");
-        }
-        return -1;
+    public boolean isEmpty() {
+        return this.getAmount() == 0 || super.isEmpty();
     }
 
     /**
@@ -92,16 +84,20 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
      */
     @Override
     public FluidStack[] getStacks() {
-        if (fluidStacks == null) {
-            int cachedAmount = rollSampledCount(GTValues.RNG);
-            if (cachedAmount == 0) {
-                return EMPTY_STACK_ARRAY;
+        if (changed || fluidStacks == null) {
+            changed = false;
+            if (!isRolled()) {
+                setAmount(rollSampledCount());
+                if (getAmount() == 0) {
+                    fluidStacks = EMPTY_STACK_ARRAY;
+                    return EMPTY_STACK_ARRAY;
+                }
             }
             var innerStacks = inner.getStacks();
             this.fluidStacks = new FluidStack[innerStacks.length];
             for (int i = 0; i < fluidStacks.length; i++) {
                 fluidStacks[i] = innerStacks[i].copy();
-                fluidStacks[i].setAmount(cachedAmount);
+                fluidStacks[i].setAmount(getAmount());
             }
         }
         return fluidStacks;
@@ -129,10 +125,11 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
      * @return the amount rolled
      */
     public int rollSampledCount(@NotNull RandomSource random) {
-        if (sampledCount == -1) {
+        if (!isRolled()) {
             sampledCount = countProvider.sample(random);
+            this.setAmount(sampledCount);
         }
-        return sampledCount;
+        return getAmount();
     }
 
     /**
@@ -142,17 +139,21 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
         return ((countProvider.getMaxValue() + countProvider.getMinValue()) / 2.0);
     }
 
-    @Override
-    public boolean isEmpty() {
-        return inner.isEmpty();
-    }
-
     /**
      * Resets the random roll on this ingredient
      */
     public void reset() {
         sampledCount = -1;
+        super.setAmount(getMaxRoll());
         fluidStacks = null;
+    }
+
+    /**
+     * Also sets the Amount of this ingredient
+     */
+    public void setSampledCount(int count) {
+        this.sampledCount = count;
+        super.setAmount(count);
     }
 
     /**
@@ -201,11 +202,11 @@ public class IntProviderFluidIngredient extends FluidIngredient implements IRang
             throw new JsonSyntaxException("Fluid ingredient cannot be null");
         }
         JsonObject jsonObject = GsonHelper.convertToJsonObject(json, "ingredient");
-        IntProvider amount = IntProvider.CODEC.parse(JsonOps.INSTANCE, jsonObject.get("count_provider"))
+        IntProvider provider = IntProvider.CODEC.parse(JsonOps.INSTANCE, jsonObject.get("count_provider"))
                 .getOrThrow(false, GTCEu.LOGGER::error);
         int sampledCount = jsonObject.getAsJsonPrimitive("sampledCount").getAsInt();
         FluidIngredient inner = FluidIngredient.fromJson(jsonObject.get("inner"));
-        return new IntProviderFluidIngredient(inner, amount, sampledCount);
+        return new IntProviderFluidIngredient(inner, provider, sampledCount);
     }
 
     public CompoundTag toNBT() {

@@ -18,7 +18,6 @@ import com.gregtechceu.gtceu.api.recipe.ActionResult;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.recipe.ingredient.FluidIngredient;
-import com.gregtechceu.gtceu.api.recipe.ingredient.IRangedIngredient;
 import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 
@@ -153,9 +152,7 @@ public class AssemblyLineMachine extends WorkableElectricMultiblockMachine {
         for (int i = 0; i < inputsSize; i++) {
             var fluidStack = fluidInventory.get(i);
             FluidIngredient recipeStack = FluidRecipeCapability.CAP.of(fluidInputs.get(i).content());
-            if (!recipeStack.test(fluidStack) ||
-                    (recipeStack instanceof IRangedIngredient ? ((IRangedIngredient) recipeStack).getMaxRoll() :
-                            recipeStack.getAmount()) > fluidStack.getAmount()) {
+            if (!recipeStack.test(fluidStack) || (recipeStack.getAmount()) > fluidStack.getAmount()) {
                 return false;
             }
         }

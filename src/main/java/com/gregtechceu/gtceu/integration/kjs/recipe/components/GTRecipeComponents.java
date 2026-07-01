@@ -8,7 +8,6 @@ import com.gregtechceu.gtceu.api.recipe.RecipeCondition;
 import com.gregtechceu.gtceu.api.recipe.chance.logic.ChanceLogic;
 import com.gregtechceu.gtceu.api.recipe.ingredient.EnergyStack;
 import com.gregtechceu.gtceu.api.recipe.ingredient.FluidIngredient;
-import com.gregtechceu.gtceu.api.recipe.ingredient.IRangedIngredient;
 import com.gregtechceu.gtceu.api.recipe.ingredient.IntProviderFluidIngredient;
 import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.gregtechceu.gtceu.common.data.GTRecipeCapabilities;
@@ -401,8 +400,7 @@ public class GTRecipeComponents {
 
         @Override
         public long kjs$getAmount() {
-            return (ingredient instanceof IRangedIngredient ? ((IRangedIngredient) ingredient).getMaxRoll() :
-                    ingredient.getAmount());
+            return ingredient.getAmount();
         }
 
         @Override
