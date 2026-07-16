@@ -8,6 +8,8 @@ public interface IConfigurableSlotList {
 
     int getConfigurableSlots();
 
+    void onContentsChanged();
+
     default boolean hasStackInConfig(GenericStack stack, boolean checkExternal) {
         if (stack == null || stack.amount() <= 0) return false;
         for (int i = 0; i < getConfigurableSlots(); i++) {

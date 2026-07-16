@@ -34,6 +34,7 @@ import net.minecraftforge.fluids.FluidStack;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -116,32 +117,29 @@ public class MEStockingHatchPartMachine extends MEInputHatchPartMachine implemen
 
     @Override
     public void autoIO() {
-        super.autoIO();
-        if (ticksPerCycle == 0) ticksPerCycle = ConfigHolder.INSTANCE.compat.ae2.updateIntervals; // Emergency Check to
-                                                                                                  // Avoid Crash loops.
-        if (getOffsetTimer() % ticksPerCycle == 0) {
-            if (autoPull) {
+        if (!isWorkingEnabled()) {
+            return;
+        }
+        if (!shouldSyncME()) {
+            return;
+        }
+        if (ticksPerCycle == 0) {
+            ticksPerCycle = ConfigHolder.INSTANCE.compat.ae2.updateIntervals;
+        }
+        if (updateMEStatus()) {
+            if (autoPull && getOffsetTimer() % ticksPerCycle == 0) {
                 refreshList();
             }
-            syncME();
+            updateTankSubscription();
         }
     }
 
     @Override
-    protected void syncME() {
-        MEStorage networkInv = this.getMainNode().getGrid().getStorageService().getInventory();
-        for (ExportOnlyAEFluidSlot slot : aeFluidHandler.getInventory()) {
-            var config = slot.getConfig();
-            if (config != null) {
-                // Try to fill the slot
-                var key = config.what();
-                long extracted = networkInv.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, actionSource);
-                if (extracted >= minStackSize) {
-                    slot.setStock(new GenericStack(key, extracted));
-                    continue;
-                }
-            }
-            slot.setStock(null);
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        boolean wasOnline = isOnline();
+        super.onMainNodeStateChanged(reason);
+        if (isOnline() != wasOnline) {
+            markForRefresh();
         }
     }
 
@@ -244,7 +242,7 @@ public class MEStockingHatchPartMachine extends MEInputHatchPartMachine implemen
             // the lowest first, we fill in the slots starting at fluidAmount-1
             var slot = this.aeFluidHandler.getInventory()[fluidAmount - index - 1];
             slot.setConfig(new GenericStack(what, 1));
-            slot.setStock(new GenericStack(what, request));
+            slot.setStockSilent(new GenericStack(what, request));
         }
 
         aeFluidHandler.clearInventory(index);
@@ -348,6 +346,16 @@ public class MEStockingHatchPartMachine extends MEInputHatchPartMachine implemen
 
         public ExportOnlyAEStockingFluidSlot(@Nullable GenericStack config, @Nullable GenericStack stock) {
             super(config, stock);
+        }
+
+        @Override
+        public void setConfig(@Nullable GenericStack val) {
+            GenericStack oldConfig = getConfig();
+            boolean changed = oldConfig == null ? val != null : !oldConfig.equals(val);
+            super.setConfig(val);
+            if (changed) {
+                markForRefresh();
+            }
         }
 
         @Override

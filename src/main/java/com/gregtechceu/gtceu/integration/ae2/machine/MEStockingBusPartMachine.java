@@ -33,6 +33,7 @@ import net.minecraft.world.phys.BlockHitResult;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -112,34 +113,29 @@ public class MEStockingBusPartMachine extends MEInputBusPartMachine implements I
 
     @Override
     public void autoIO() {
-        super.autoIO();
-        if (ticksPerCycle == 0) ticksPerCycle = ConfigHolder.INSTANCE.compat.ae2.updateIntervals; // Emergency Check to
-                                                                                                  // Avoid Crash loops.
-        if (getOffsetTimer() % ticksPerCycle == 0) {
-            if (autoPull) {
+        if (!isWorkingEnabled()) {
+            return;
+        }
+        if (!shouldSyncME()) {
+            return;
+        }
+        if (ticksPerCycle == 0) {
+            ticksPerCycle = ConfigHolder.INSTANCE.compat.ae2.updateIntervals;
+        }
+        if (updateMEStatus()) {
+            if (autoPull && getOffsetTimer() % ticksPerCycle == 0) {
                 refreshList();
             }
-            syncME();
+            updateInventorySubscription();
         }
     }
 
     @Override
-    protected void syncME() {
-        // Update the visual display for the fake items. This also is important for the item handler's
-        // getStackInSlot() method, as it uses the cached items set here.
-        MEStorage networkInv = this.getMainNode().getGrid().getStorageService().getInventory();
-        for (ExportOnlyAEItemSlot slot : this.aeItemHandler.getInventory()) {
-            var config = slot.getConfig();
-            if (config != null) {
-                // Try to fill the slot
-                var key = config.what();
-                long extracted = networkInv.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, actionSource);
-                if (extracted >= minStackSize) {
-                    slot.setStock(new GenericStack(key, extracted));
-                    continue;
-                }
-            }
-            slot.setStock(null);
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        boolean wasOnline = isOnline();
+        super.onMainNodeStateChanged(reason);
+        if (isOnline() != wasOnline) {
+            markForRefresh();
         }
     }
 
@@ -261,7 +257,7 @@ public class MEStockingBusPartMachine extends MEInputBusPartMachine implements I
             // the lowest first, we fill in the slots starting at itemAmount-1
             var slot = this.aeItemHandler.getInventory()[itemAmount - index - 1];
             slot.setConfig(new GenericStack(what, 1));
-            slot.setStock(new GenericStack(what, request));
+            slot.setStockSilent(new GenericStack(what, request));
         }
 
         aeItemHandler.clearInventory(index);
@@ -361,6 +357,16 @@ public class MEStockingBusPartMachine extends MEInputBusPartMachine implements I
 
         public ExportOnlyAEStockingItemSlot(@Nullable GenericStack config, @Nullable GenericStack stock) {
             super(config, stock);
+        }
+
+        @Override
+        public void setConfig(@Nullable GenericStack val) {
+            GenericStack oldConfig = getConfig();
+            boolean changed = oldConfig == null ? val != null : !oldConfig.equals(val);
+            super.setConfig(val);
+            if (changed) {
+                markForRefresh();
+            }
         }
 
         @Override
